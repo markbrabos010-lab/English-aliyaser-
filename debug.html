@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>فحص الموقع - Debug</title>
+<style>
+body{font-family:Arial,sans-serif;background:#f5f5f5;padding:20px;max-width:600px;margin:0 auto}
+.card{background:#fff;border-radius:12px;padding:20px;margin-bottom:15px;box-shadow:0 2px 8px rgba(0,0,0,.1)}
+h1{text-align:center}
+button{width:100%;padding:14px;margin:8px 0;border:none;border-radius:10px;font-size:16px;font-weight:bold;cursor:pointer}
+.btn-blue{background:#2563eb;color:#fff}
+.btn-green{background:#16a34a;color:#fff}
+.btn-orange{background:#ea580c;color:#fff}
+.btn-purple{background:#7c3aed;color:#fff}
+.result{background:#f1f5f9;border-radius:8px;padding:12px;margin-top:10px;font-size:14px;line-height:1.8;white-space:pre-wrap;word-break:break-word}
+.ok{color:#16a34a;font-weight:bold}
+.fail{color:#dc2626;font-weight:bold}
+input{width:100%;padding:12px;border:1px solid #ddd;border-radius:10px;margin:8px 0;font-size:16px;box-sizing:border-box}
+</style>
+</head>
+<body>
+<h1>🔍 فحص الموقع</h1>
+<p style="text-align:center;color:#666">ارفع هالملف جنب index.html على جيت هب وجربه</p>
+
+<div class="card">
+<h2>1️⃣ فحص الحفظ (localStorage)</h2>
+<button class="btn-blue" onclick="testSave()">جرب الحفظ</button>
+<div id="saveResult" class="result">اضغط الزر للفحص...</div>
+</div>
+
+<div class="card">
+<h2>2️⃣ فحص الويب هوك</h2>
+<input id="studentName" placeholder="اكتب اسم الطالب للتجربة" value="تجربة">
+<button class="btn-green" onclick="testWebhookDirect()">جرب الويب هوك - مباشر</button>
+<button class="btn-orange" onclick="testWebhookProxy()">جرب الويب هوك - عبر Proxy</button>
+<button class="btn-purple" onclick="testWebhookAll()">جرب الكل مع بعض</button>
+<div id="webhookResult" class="result">اضغط زر للفحص... وبعدها روح شيك الديسكورد هل وصلت رسالة "تجربة" ولا لا</div>
+</div>
+
+<div class="card">
+<h2>3️⃣ معلومات جهازك</h2>
+<div id="info" class="result"></div>
+</div>
+
+<script>
+var WEBHOOK = "https://discord.com/api/webhooks/1571919366080041001/OtNlh2LqfVSPwQ0RoR0nCEpHAJhQM5tv7U4jtB2nnmvAcLkBkBDzQ5C50BOuH9K2kY7I";
+
+function show(id, txt){ document.getElementById(id).textContent = txt; }
+
+function testSave(){
+  try{
+    var key = "english_hub_records_student_results";
+    var test = {id:"test_"+Date.now(), value:{student:"تجربة", exam:"فحص", score:100, created_at:new Date().toISOString()}};
+    var old = localStorage.getItem(key);
+    var arr = old ? JSON.parse(old) : [];
+    arr.unshift(test);
+    localStorage.setItem(key, JSON.stringify(arr));
+    var back = JSON.parse(localStorage.getItem(key));
+    var found = back.some(function(r){ return r.id===test.id; });
+    if(found){
+      show("saveResult", "✅ الحفظ شغال!\nتم حفظ سجل تجريبي بنجاح.\nعدد السجلات الآن: " + back.length + "\nالمتصفح يدعم localStorage.");
+    } else {
+      show("saveResult", "❌ الحفظ ما اشتغل - ما لقيت السجل بعد الحفظ");
+    }
+  }catch(e){
+    show("saveResult", "❌ خطأ بالحفظ: " + e.message + "\n\nممكن المتصفح مانع localStorage أو فاتح الموقع من file://");
+  }
+}
+
+async function testWebhookDirect(){
+  var name = document.getElementById("studentName").value || "تجربة";
+  var payload = {username:"English Hub - فحص", embeds:[{title:"رسالة فحص", description:"الطالب: "+name+"\nالامتحان: فحص مباشر\nالدرجة: 100/100\nالتاريخ: "+new Date().toISOString(), color:5814783}]};
+  show("webhookResult", "⏳ جاري الإرسال مباشر... انتظر 5 ثواني وبعدها شيك الديسكورد");
+  try{
+    await fetch(WEBHOOK, {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(payload), mode:"no-cors"});
+    show("webhookResult", "✅ تم الإرسال (no-cors) - المتصفح أرسل الطلب.\nروح شيك الديسكورد الآن، إذا وصلت رسالة يعني الطريقة المباشرة شغالة.\nإذا ما وصلت، جرب زر Proxy.");
+  }catch(e){
+    show("webhookResult", "❌ خطأ بالإرسال المباشر: " + e.message);
+  }
+}
+
+async function testWebhookProxy(){
+  var name = document.getElementById("studentName").value || "تجربة";
+  var payload = {username:"English Hub - فحص", embeds:[{title:"رسالة فحص Proxy", description:"الطالب: "+name+"\nالامتحان: فحص Proxy\nالدرجة: 100/100\nالتاريخ: "+new Date().toISOString(), color:5814783}]};
+  show("webhookResult", "⏳ جاري الإرسال عبر Proxy... انتظر 5 ثواني وبعدها شيك الديسكورد");
+  try{
+    var res = await fetch("https://corsproxy.io/?url=" + encodeURIComponent(WEBHOOK), {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(payload)});
+    show("webhookResult", "✅ تم الإرسال عبر Proxy - رد السيرفر: " + res.status + "\nروح شيك الديسكورد الآن.");
+  }catch(e){
+    show("webhookResult", "❌ خطأ بالـ Proxy: " + e.message + "\n\nجرب زر الكل مع بعض.");
+  }
+}
+
+async function testWebhookAll(){
+  var name = document.getElementById("studentName").value || "تجربة";
+  var payload = {username:"English Hub - فحص", embeds:[{title:"رسالة فحص شامل", description:"الطالب: "+name+"\nالامتحان: فحص شامل - كل الطرق\nالدرجة: 100/100\nالتاريخ: "+new Date().toISOString(), color:5814783}]};
+  show("webhookResult", "⏳ جاري الإرسال بـ 3 طرق مع بعض... انتظر 8 ثواني وبعدها شيك الديسكورد، لازم توصلك رسالة واحدة على الأقل.");
+  try{ fetch(WEBHOOK, {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(payload), mode:"no-cors"}).catch(function(){}); }catch(e){}
+  try{ fetch("https://corsproxy.io/?url=" + encodeURIComponent(WEBHOOK), {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(payload)}).catch(function(){}); }catch(e){}
+  setTimeout(function(){
+    try{ fetch(WEBHOOK, {method:"POST", headers:{"Content-Type":"text/plain"}, body: JSON.stringify(payload), mode:"no-cors"}).catch(function(){}); }catch(e){}
+    show("webhookResult", "✅ تم الإرسال بـ 3 طرق.\nروح شيك الديسكورد الآن - إذا وصلت رسالة يعني وحدة من الطرق شغالة وبنعتمدها بالموقع.\nإذا ما وصل شي أبداً، معناها الويب هوك نفسه فيه مشكلة ولازم تسوي ويب هوك جديد.");
+  }, 1000);
+}
+
+document.getElementById("info").textContent =
+  "المتصفح: " + navigator.userAgent + "\n" +
+  "الرابط: " + location.href + "\n" +
+  "البروتوكول: " + location.protocol + "\n" +
+  "localStorage مدعوم: " + (typeof localStorage !== "undefined" ? "نعم" : "لا") + "\n" +
+  "Cookies مفعلة: " + navigator.cookieEnabled;
+</script>
+</body>
+</html>
